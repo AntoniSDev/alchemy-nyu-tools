@@ -11,6 +11,7 @@ import type {
 } from "../../types/production";
 import type { UpgradeLevels } from "../../types/upgrades";
 import { UpgradesPanel } from "./UpgradesPanel";
+import { AgricultureResults } from "../agriculture/AgricultureResults";
 import {
   formatNumber as number,
   formatPercent as percent,
@@ -35,6 +36,9 @@ export function ProductionPage({
 }) {
   const [itemId, setItemId] = useState(targetItemIds[0]);
   const [rate, setRate] = useState("15");
+  const [selectedFertilizerId, setSelectedFertilizerId] = useState(
+    dataset.fertilizers![0].itemId,
+  );
   const [target, setTarget] = useState<ProductionTarget | null>(null);
   const { result, error } = useMemo(() => {
     if (!target) return { result: null, error: "" };
@@ -44,6 +48,7 @@ export function ProductionPage({
           target,
           externalItemIds,
           upgrades,
+          selectedFertilizerId,
         }),
         error: "",
       };
@@ -53,7 +58,7 @@ export function ProductionPage({
         error: caught instanceof Error ? caught.message : "Le calcul a échoué.",
       };
     }
-  }, [target, upgrades]);
+  }, [target, upgrades, selectedFertilizerId]);
   function submit(event: FormEvent) {
     event.preventDefault();
     setTarget({ itemId, ratePerMinute: rate.trim() ? Number(rate) : NaN });
@@ -70,7 +75,7 @@ export function ProductionPage({
     result?.flows.filter(
       (flow) =>
         flow.itemId !== result.target.itemId &&
-        !externalItemIds.includes(flow.itemId),
+        !result.externalInputs.some((input) => input.itemId === flow.itemId),
     ) ?? [];
 
   return (
@@ -117,8 +122,27 @@ export function ProductionPage({
           Calculer <span aria-hidden="true">→</span>
         </button>
       </form>
+      <section className="panel fertilizer-selection">
+        <label>
+          Engrais pour les cultures
+          <select
+            value={selectedFertilizerId}
+            onChange={(event) => setSelectedFertilizerId(event.target.value)}
+          >
+            {dataset.fertilizers!.map((fertilizer) => (
+              <option key={fertilizer.itemId} value={fertilizer.itemId}>
+                {itemName(fertilizer.itemId)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="note">
+          Ressource externe utilisée uniquement par les chaînes agricoles. Le
+          choix actualise la chaîne calculée.
+        </p>
+      </section>
       <p className="note">
-        Données du cahier des charges PROTO-001. Les noms marqués « FR À
+        Données des cahiers des charges du prototype. Les noms marqués « FR À
         CONFIRMER » restent à vérifier dans le jeu.
       </p>
       {error && (
@@ -153,6 +177,9 @@ export function ProductionPage({
               {number(result.target.ratePerMinute)} <small>objets/min</small>
             </strong>
           </section>
+          {result.nurseryLoads.length > 0 && (
+            <AgricultureResults result={result} />
+          )}
           <section className="panel">
             <h2>Machines nécessaires</h2>
             <div className="table-wrap">

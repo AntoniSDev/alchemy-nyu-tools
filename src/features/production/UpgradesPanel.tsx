@@ -4,6 +4,7 @@ import {
   getConveyorCapacity,
   getFactorySpeedMultiplier,
   getFuelEfficiencyMultiplier,
+  getFertilizerEfficiencyMultiplier,
 } from "../../engine/upgrades/calculateUpgrades";
 import { UpgradeLevelInput } from "../../components/UpgradeLevelInput";
 import { formatNumber } from "../../utils/display";
@@ -21,6 +22,14 @@ export function UpgradesPanel({
     <section className="panel upgrades">
       <h2>Améliorations</h2>
       <div className="upgrade-grid">
+        <UpgradeLevelInput
+          label={upgradeDefinitions.fertilizerEfficiency.nameFr!}
+          value={levels.fertilizerEfficiency}
+          onChange={(value) => onChange("fertilizerEfficiency", value)}
+          effect={multiplier(
+            getFertilizerEfficiencyMultiplier(levels.fertilizerEfficiency),
+          )}
+        />
         <UpgradeLevelInput
           label={upgradeDefinitions.logisticsEfficiency.nameFr!}
           value={levels.logisticsEfficiency}

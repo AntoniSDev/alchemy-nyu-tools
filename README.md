@@ -1,4 +1,4 @@
-# Alchemy Nyu Tools — PROTO-003
+# Alchemy Nyu Tools — PROTO-004
 
 Prototype statique de calcul de production et de chauffage pour Alchemy Factory 1.0.x. React, TypeScript strict, Vite et Vitest ; aucun serveur applicatif ni compte.
 
@@ -39,7 +39,8 @@ Références : [configuration SPA Cloudflare](https://developers.cloudflare.com/
 
 ## Organisation
 
-- `src/data/prototype.ts` : six objets, trois machines, quatre recettes, capacité du convoyeur et entrées externes.
+- `src/data/prototype.ts` : objets, quatre machines, six recettes, capacité du convoyeur et entrées externes.
+- `src/data/agriculture.ts`, `src/types/agriculture.ts`, `src/engine/agriculture/` : quatre engrais externes, données agricoles, calcul du débit et de la consommation.
 - `src/types/production.ts` : contrat de données, requête et résultats.
 - `src/engine/production/` : parcours récursif pur, contrôles, agrégation des flux et machines.
 - `src/data/heating.ts` et `src/types/heating.ts` : deux générateurs, huit combustibles, règle d’efficacité, provenance et contrats de chauffage.
@@ -47,7 +48,7 @@ Références : [configuration SPA Cloudflare](https://developers.cloudflare.com/
 - `src/engine/transport/` : contrôle des flux par rapport à une ligne de convoyeur.
 - `src/features/production/` : formulaire et résultats en français.
 - `src/features/heating/` : appareils, groupes de générateurs, affectations, combustible et résultats.
-- `src/data/upgrades.ts`, `src/types/upgrades.ts`, `src/engine/upgrades/` : définitions, niveaux et formules pures des trois améliorations.
+- `src/data/upgrades.ts`, `src/types/upgrades.ts`, `src/engine/upgrades/` : définitions, niveaux et formules pures des quatre améliorations.
 - `src/app/` : entrée React et styles adaptatifs.
 - `tests/` : références métier et cas unitaires/erreurs.
 
@@ -104,11 +105,12 @@ Ces références utilisent la poudre de charbon de bois. Les 31 tests PROTO-001 
 
 ## Améliorations globales
 
-Les trois définitions de `src/data/upgrades.ts` séparent identifiants, libellés français, statut et paramètres numériques. Toutes les règles détaillées restent `unverified`, issues du cahier des charges PROTO-003. `getConveyorCapacity`, `getFactorySpeedMultiplier` et `getFuelEfficiencyMultiplier` exécutent les calculs hors React. Les niveaux sont des entiers positifs ou nuls représentables sans perte de précision ; aucun plafond de jeu arbitraire n’est ajouté.
+Les définitions de `src/data/upgrades.ts` séparent identifiants, libellés français, statut et paramètres numériques. Toutes les règles détaillées restent `unverified`, issues des cahiers des charges PROTO-003 et PROTO-004. Les fonctions de `src/engine/upgrades/` exécutent les calculs hors React. Les niveaux sont des entiers positifs ou nuls représentables sans perte de précision ; aucun plafond de jeu arbitraire n’est ajouté.
 
 - **Logistique** : base 60 objets/min, +15 par niveau jusqu’à 12, puis +3. La capacité effective alimente les contrôles de chaque flux.
 - **Usine** : base ×1, +0,25 par niveau jusqu’à 12, puis +0,05. La durée effective est divisée par ce multiplicateur sans modifier les recettes. La chaleur instantanée de chaque appareil est multipliée par cette même valeur, puis pondérée par son nombre théorique.
 - **Carburant** : base ×1, +0,10 par niveau. Le moteur Chauffage réutilise cette formule centralisée ; aucune deuxième formule n’est maintenue dans l’interface.
+- **Engrais** : base ×1, +0,10 par niveau sur la valeur nutritive uniquement. Aucun effet sur le débit nutritif maximal.
 
 `ProductionRequest.upgrades` est facultatif pour conserver les appels existants au niveau zéro. Les résultats contiennent une copie des niveaux appliqués, la capacité de convoyeur et la vitesse effective. Les `HeatingLoad` produits ajoutent le multiplicateur usine et la chaleur instantanée par appareil, sans changer le rôle de `productiveHeatPerSecond`.
 
@@ -124,3 +126,27 @@ Les niveaux globaux sont partagés dans `App`. Une modification valide actualise
 | U6  | Flux de 100/min, logistique 0/4 : 2/1 lignes nécessaires                                    |
 
 Les tests vérifient également les niveaux 1 et 20, l’invariance de 36 P par poudre produite à plusieurs vitesses, l’immutabilité du dataset, les niveaux invalides et le chauffage autonome. La configuration Cloudflare reste inchangée.
+
+## Agriculture automatisée
+
+La chaîne agricole est Pépinière → Lin → Broyeur → Fibre de lin. La recette du lin porte `nutrientCostPerOutput: 24` et aucun `cycleTimeSeconds`. La fibre consomme un lin et utilise un cycle standard de 3 secondes. Une recette ne peut pas mélanger cycle fixe et timing nutritif.
+
+`calculateNurseryOutputRate` calcule `(débit nutritif maximal / coût nutritif) × 60 × vitesse usine`, puis limite le résultat à la capacité du convoyeur par pépinière. Les nombres théoriques, construits et l’utilisation réutilisent les règles existantes. `calculateFertilizerLoad` calcule `production demandée × coût nutritif`, puis divise ce besoin par `valeur nutritive × (1 + niveau engrais × 0,10)`.
+
+Le moteur reçoit `selectedFertilizerId` avec la requête. Ce choix est obligatoire lorsqu’une recette agricole est rencontrée. L’engrais reste externe même si une recette de fabrication existe dans un dataset : aucune production interne n’est recherchée. Sa consommation est agrégée par engrais dans `fertilizerLoads`, ajoutée aux entrées externes et aux flux transportés. Les `nurseryLoads` regroupent les besoins par recette et exposent le débit maximal et la limitation par convoyeur.
+
+Les engrais disponibles sont l’engrais basique (144 V, 12 V/s), l’engrais avancé (720 V, 144 V/s), la potion de croissance (6480 V, 2160 V/s) et la panacée (200000 V, 20000 V/s). Ces valeurs viennent de PROTO-004 et restent `unverified`. Les noms français sont marqués « FR À CONFIRMER ». La valeur nutritive de la panacée est indépendante de son énergie de combustible.
+
+Dans Production, choisir Fibre de lin et l’engrais, puis calculer. Le bloc Agriculture affiche les pépinières, leurs cadences, les valeurs nutritives et la consommation. Un changement d’engrais ou de niveau actualise la cible calculée. Les autres chaînes conservent leur fonctionnement. À cible fixe, la vitesse usine ne change pas le besoin total en nutriments. L’efficacité de l’engrais ne change pas la vitesse maximale de la pépinière.
+
+| Référence | Résultat                                                                                                     |
+| --------- | ------------------------------------------------------------------------------------------------------------ |
+| A1        | Engrais basique : maximum de 30 lin/min                                                                      |
+| A2        | 20 lin/min : 480 V/min et 3,333333 engrais/min                                                               |
+| A3        | 0,666667 pépinière théorique, 1 construite, 66,6667 % d’utilisation                                          |
+| A4        | Engrais avancé : 360 lin/min avant plafond, 60/min après convoyeur                                           |
+| A5        | Même engrais, logistique 4 : maximum de 120/min                                                              |
+| A6        | Engrais basique, usine 4 : maximum de 60/min                                                                 |
+| A7        | 30 lin/min, efficacité engrais 0/5 : 5/3,333333 engrais/min ; valeur effective 144/216 V ; vitesse inchangée |
+
+La cible de 20 fibres de lin/min nécessite 1 broyeur et 0,666667 pépinière théorique (1 construite), 20 lin/min et 3,333333 engrais basiques/min. Aucun chauffage. Les tests existants sont conservés ; les nouveaux tests couvrent aussi l’agrégation, l’immuabilité, les engrais inconnus et les valeurs invalides. Aucun recyclage, culture manuelle ou choix automatique d’engrais n’est ajouté.

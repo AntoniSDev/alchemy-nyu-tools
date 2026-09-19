@@ -2,6 +2,14 @@ import type { UpgradeDefinitions, UpgradeLevels } from "../types/upgrades";
 
 // Candidate rules transcribed from PROTO-003, without independent primary evidence.
 export const upgradeDefinitions: UpgradeDefinitions = {
+  fertilizerEfficiency: {
+    id: "upgrade.fertilizer_efficiency",
+    nameFr: "Efficacité de l’engrais",
+    effectType: "fertilizer_efficiency",
+    validation: { status: "unverified", evidenceIds: [] },
+    baseValue: 1,
+    bonusPerLevel: 0.1,
+  },
   logisticsEfficiency: {
     id: "upgrade.logistics_efficiency",
     nameFr: "Logistique",
@@ -35,4 +43,5 @@ export const defaultUpgradeLevels: Readonly<UpgradeLevels> = {
   logisticsEfficiency: 0,
   factoryEfficiency: 0,
   fuelEfficiency: 0,
+  fertilizerEfficiency: 0,
 };

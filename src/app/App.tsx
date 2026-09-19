@@ -31,7 +31,7 @@ export function App() {
         <a className="brand" href="./">
           ALCHEMY <span>NYU TOOLS</span>
         </a>
-        <span className="badge">PROTO-003 · 1.0.x</span>
+        <span className="badge">PROTO-004 · 1.0.x</span>
       </header>
       <nav aria-label="Modules">
         <button

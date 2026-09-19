@@ -1,10 +1,12 @@
 import type { FieldValidation, ProductionDataset } from "../types/production";
 import { upgradeDefinitions } from "./upgrades";
+import { agricultureItems, fertilizers } from "./agriculture";
 
 const unverified: FieldValidation = { status: "unverified", evidenceIds: [] };
 
 // Values transcribed from the PROTO-001 specification, not independently verified in game.
 export const prototypeDataset: ProductionDataset = {
+  fertilizers,
   upgrades: upgradeDefinitions,
   conveyorCapacityPerMinute: upgradeDefinitions.logisticsEfficiency.baseValue,
   items: [
@@ -50,6 +52,7 @@ export const prototypeDataset: ProductionDataset = {
       transportable: true,
       nameValidation: unverified,
     },
+    ...agricultureItems,
   ],
   machines: [
     { id: "machine.grinder", nameFr: "Broyeur", nameValidation: unverified },
@@ -64,6 +67,7 @@ export const prototypeDataset: ProductionDataset = {
       nameValidation: unverified,
       heating: { baseHeatPerSecond: 4, placementUnits: 3 },
     },
+    { id: "machine.nursery", nameFr: "Pépinière", nameValidation: unverified },
   ],
   recipes: [
     {
@@ -94,10 +98,27 @@ export const prototypeDataset: ProductionDataset = {
       outputs: [{ itemId: "item.quicklime_powder", quantity: 1 }],
       cycleTimeSeconds: 9,
     },
+
+    {
+      id: "recipe.flax",
+      machineId: "machine.nursery",
+      inputs: [],
+      outputs: [{ itemId: "item.flax", quantity: 1 }],
+      nutrientCostPerOutput: 24,
+      nutrientValidation: unverified,
+    },
+    {
+      id: "recipe.flax_fiber",
+      machineId: "machine.grinder",
+      inputs: [{ itemId: "item.flax", quantity: 1 }],
+      outputs: [{ itemId: "item.flax_fiber", quantity: 1 }],
+      cycleTimeSeconds: 3,
+    },
   ],
 };
 export const externalItemIds = ["item.plank", "item.stone"];
 export const targetItemIds = [
   "item.small_wooden_gear",
   "item.quicklime_powder",
+  "item.flax_fiber",
 ];

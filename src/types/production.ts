@@ -1,4 +1,9 @@
 import type { UpgradeDefinitions, UpgradeLevels } from "./upgrades";
+import type {
+  FertilizerDefinition,
+  FertilizerLoad,
+  NurseryLoad,
+} from "./agriculture";
 
 export type ValidationStatus =
   "verified" | "unverified" | "conflict" | "obsolete";
@@ -23,7 +28,9 @@ export interface Recipe {
   machineId: string;
   inputs: RecipeComponent[];
   outputs: RecipeComponent[];
-  cycleTimeSeconds: number;
+  cycleTimeSeconds?: number;
+  nutrientCostPerOutput?: number;
+  nutrientValidation?: FieldValidation;
 }
 export interface MachineHeatingRequirement {
   baseHeatPerSecond: number;
@@ -36,6 +43,7 @@ export interface Machine {
   heating?: MachineHeatingRequirement;
 }
 export interface ProductionDataset {
+  fertilizers?: FertilizerDefinition[];
   upgrades?: UpgradeDefinitions;
   items: Item[];
   machines: Machine[];
@@ -47,6 +55,7 @@ export interface ProductionTarget {
   ratePerMinute: number;
 }
 export interface ProductionRequest {
+  selectedFertilizerId?: string;
   upgrades?: UpgradeLevels;
   target: ProductionTarget;
   externalItemIds: string[];
@@ -86,6 +95,8 @@ export interface CalculationWarning {
   message: string;
 }
 export interface ProductionResult {
+  fertilizerLoads: FertilizerLoad[];
+  nurseryLoads: NurseryLoad[];
   upgrades: UpgradeLevels;
   factorySpeedMultiplier: number;
   conveyorCapacityPerMinute: number;

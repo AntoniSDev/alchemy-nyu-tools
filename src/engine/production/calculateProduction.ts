@@ -18,7 +18,13 @@ import {
   getConveyorCapacity,
   getFactorySpeedMultiplier,
   validateUpgradeLevels,
+  getFertilizerEfficiencyMultiplier,
 } from "../upgrades/calculateUpgrades";
+import {
+  calculateFertilizerLoad,
+  calculateNurseryOutputRate,
+} from "../agriculture/calculateAgriculture";
+import type { FertilizerLoad, NurseryLoad } from "../../types/agriculture";
 
 export function calculateProduction(
   dataset: ProductionDataset,
@@ -48,6 +54,8 @@ export function calculateProduction(
   const externalRates = new Map<string, number>();
   // Keep counts per recipe: distinct recipes cannot share the same installed machine simultaneously.
   const recipeCounts = new Map<string, { machineId: string; count: number }>();
+  const fertilizerLoads = new Map<string, FertilizerLoad>();
+  const nurseryLoads = new Map<string, NurseryLoad>();
   requireNonNegative(request.target.ratePerMinute, "La quantité demandée");
   requirePositive(
     dataset.conveyorCapacityPerMinute,
@@ -100,12 +108,76 @@ export function calculateProduction(
         );
     }
     const output = recipe.outputs[0];
-    const count =
-      ratePerMinute /
-      outputPerMinute(
-        recipe.cycleTimeSeconds / factorySpeedMultiplier,
+    let maximumOutputPerMinute: number;
+    let fertilizerNode: ProductionNode | null = null;
+    if (recipe.nutrientCostPerOutput !== undefined) {
+      if (recipe.cycleTimeSeconds !== undefined)
+        throw new Error(
+          "Une recette agricole ne doit pas définir de cycle fixe.",
+        );
+      const fertilizer = dataset.fertilizers?.find(
+        (entry) => entry.itemId === request.selectedFertilizerId,
+      );
+      if (!fertilizer) throw new Error("Engrais inconnu ou non sélectionné.");
+      if (!items.has(fertilizer.itemId))
+        throw new Error("L’objet correspondant à l’engrais est inconnu.");
+      const rates = calculateNurseryOutputRate(
+        fertilizer,
+        recipe.nutrientCostPerOutput,
+        factorySpeedMultiplier,
+        conveyorCapacityPerMinute,
+      );
+      maximumOutputPerMinute = rates.maximumOutputPerMinute;
+      const load = calculateFertilizerLoad(
+        fertilizer,
+        recipe.nutrientCostPerOutput,
+        ratePerMinute,
+        getFertilizerEfficiencyMultiplier(
+          upgrades.fertilizerEfficiency,
+          definitions.fertilizerEfficiency,
+        ),
+      );
+      const priorLoad = fertilizerLoads.get(fertilizer.itemId);
+      fertilizerLoads.set(fertilizer.itemId, {
+        ...load,
+        nutrientPerMinute: requireNonNegative(
+          (priorLoad?.nutrientPerMinute ?? 0) + load.nutrientPerMinute,
+          "Le besoin nutritif cumulé",
+        ),
+        fertilizerItemsPerMinute: requireNonNegative(
+          (priorLoad?.fertilizerItemsPerMinute ?? 0) +
+            load.fertilizerItemsPerMinute,
+          "La consommation d’engrais cumulée",
+        ),
+      });
+      add(externalRates, fertilizer.itemId, load.fertilizerItemsPerMinute);
+      add(flowRates, fertilizer.itemId, load.fertilizerItemsPerMinute);
+      fertilizerNode = {
+        itemId: fertilizer.itemId,
+        ratePerMinute: load.fertilizerItemsPerMinute,
+        recipeId: null,
+        inputs: [],
+      };
+      const outputRatePerMinute = requireNonNegative(
+        (nurseryLoads.get(recipe.id)?.outputRatePerMinute ?? 0) + ratePerMinute,
+        "La production agricole cumulée",
+      );
+      nurseryLoads.set(recipe.id, {
+        recipeId: recipe.id,
+        machineId: recipe.machineId,
+        itemId,
+        fertilizerItemId: fertilizer.itemId,
+        outputRatePerMinute,
+        ...rates,
+        ...machineCounts(outputRatePerMinute / maximumOutputPerMinute),
+      });
+    } else {
+      maximumOutputPerMinute = outputPerMinute(
+        (recipe.cycleTimeSeconds ?? NaN) / factorySpeedMultiplier,
         output.quantity,
       );
+    }
+    const count = ratePerMinute / maximumOutputPerMinute;
     const previous = recipeCounts.get(recipe.id)?.count ?? 0;
     recipeCounts.set(recipe.id, {
       machineId: recipe.machineId,
@@ -119,6 +191,7 @@ export function calculateProduction(
         nextPath,
       ),
     );
+    if (fertilizerNode) inputs.push(fertilizerNode);
     return { itemId, ratePerMinute, recipeId: recipe.id, inputs };
   }
 
@@ -161,6 +234,8 @@ export function calculateProduction(
     .filter((flow) => items.get(flow.itemId)!.transportable)
     .map((flow) => checkTransport(flow, conveyorCapacityPerMinute));
   return {
+    fertilizerLoads: [...fertilizerLoads.values()],
+    nurseryLoads: [...nurseryLoads.values()],
     upgrades,
     factorySpeedMultiplier,
     conveyorCapacityPerMinute,

@@ -13,6 +13,7 @@ export function validateUpgradeLevels(levels: UpgradeLevels): UpgradeLevels {
   validateUpgradeLevel(levels.logisticsEfficiency);
   validateUpgradeLevel(levels.factoryEfficiency);
   validateUpgradeLevel(levels.fuelEfficiency);
+  validateUpgradeLevel(levels.fertilizerEfficiency);
   return { ...levels };
 }
 function calculateEffect(level: number, definition: UpgradeDefinition): number {
@@ -33,6 +34,12 @@ function calculateEffect(level: number, definition: UpgradeDefinition): number {
 export function getConveyorCapacity(
   level: number,
   definition = upgradeDefinitions.logisticsEfficiency,
+): number {
+  return calculateEffect(level, definition);
+}
+export function getFertilizerEfficiencyMultiplier(
+  level: number,
+  definition = upgradeDefinitions.fertilizerEfficiency,
 ): number {
   return calculateEffect(level, definition);
 }
