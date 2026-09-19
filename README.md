@@ -14,7 +14,28 @@ npm run build
 npm run preview
 ```
 
-Le build statique est généré dans `dist/`. Aucun déploiement n’est configuré.
+Le build statique est généré dans `dist/`.
+
+## Déploiement Cloudflare
+
+Le dépôt est préparé pour Cloudflare Workers Static Assets, sans script Worker applicatif ni backend. `wrangler.jsonc` définit le nom `alchemy-nyu-tools`, le dossier `dist` et le fallback SPA `single-page-application` vers `index.html`.
+
+Dans l’intégration Git Cloudflare, utiliser :
+
+- Commande de build : `npm run build`.
+- Commande de déploiement : `npx wrangler deploy` (également disponible via `npm run deploy`).
+
+Wrangler est une dépendance de développement verrouillée dans `package-lock.json`. Installer les dépendances de développement lors du build. L’authentification de publication est gérée dans Cloudflare ; aucun identifiant n’est stocké dans le dépôt.
+
+Validation locale sans publication, après le build :
+
+```sh
+npx wrangler deploy --dry-run
+```
+
+La base Vite est `/` pour servir les fichiers JS/CSS depuis la racine du domaine, y compris lors d’un accès direct à une URL imbriquée. Le fallback charge l’application ; il n’ajoute pas de routage client aux onglets Production et Chauffage.
+
+Références : [configuration SPA Cloudflare](https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/) et [base publique Vite](https://vite.dev/config/shared-options/#base).
 
 ## Organisation
 
