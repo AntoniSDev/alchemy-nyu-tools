@@ -316,3 +316,72 @@ footer {
 .grid > * {
   min-width: 0;
 }
+nav {
+  display: flex;
+  gap: 12px;
+  padding-top: 20px;
+}
+nav button,
+.secondary {
+  background: #2c372e;
+  color: #d3e0d5;
+  border: 1px solid #4a584d;
+}
+nav button[aria-current="page"] {
+  background: #bddb9d;
+  color: #182212;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.import-bar {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  justify-content: space-between;
+}
+.import-bar > div {
+  flex: 1;
+}
+.import-bar button {
+  max-width: 340px;
+}
+.generator-group {
+  margin: 20px 0;
+  border: 1px solid #4a584d;
+  border-radius: 6px;
+  padding: 20px;
+  min-width: 0;
+}
+.assignment {
+  margin-top: 18px;
+  max-width: 420px;
+}
+summary {
+  cursor: pointer;
+  padding: 12px 0;
+}
+.heating-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.heating-summary dd {
+  overflow-wrap: anywhere;
+}
+.placement-result {
+  border-top: 1px solid #354038;
+  margin-top: 24px;
+  padding-top: 8px;
+}
+@media (max-width: 760px) {
+  .import-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .import-bar button {
+    max-width: none;
+  }
+  .heating-summary {
+    grid-template-columns: 1fr;
+  }
+}

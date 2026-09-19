@@ -71,8 +71,12 @@ export interface TransportFlowCheck extends ItemFlow {
   exceedsSingleLine: boolean;
 }
 export interface CalculationWarning {
-  code: "transport-capacity";
-  itemId: string;
+  code:
+    | "transport-capacity"
+    | "CAPACITE_CHAUFFAGE_INSUFFISANTE"
+    | "UNASSIGNED_HEATING_LOAD";
+  itemId?: string;
+  groupIndex?: number;
   message: string;
 }
 export interface ProductionResult {

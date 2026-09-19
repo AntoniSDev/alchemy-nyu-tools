@@ -1,6 +1,6 @@
-# Alchemy Nyu Tools — PROTO-001
+# Alchemy Nyu Tools — PROTO-002
 
-Prototype statique de calcul de production pour Alchemy Factory 1.0.x. React, TypeScript strict, Vite et Vitest ; aucun serveur applicatif ni compte.
+Prototype statique de calcul de production et de chauffage pour Alchemy Factory 1.0.x. React, TypeScript strict, Vite et Vitest ; aucun serveur applicatif ni compte.
 
 ## Démarrage
 
@@ -21,9 +21,11 @@ Le build statique est généré dans `dist/`. Aucun déploiement n’est configu
 - `src/data/prototype.ts` : six objets, trois machines, quatre recettes, capacité du convoyeur et entrées externes.
 - `src/types/production.ts` : contrat de données, requête et résultats.
 - `src/engine/production/` : parcours récursif pur, contrôles, agrégation des flux et machines.
-- `src/engine/heating/` : extraction de la charge productive uniquement.
+- `src/data/heating.ts` et `src/types/heating.ts` : deux générateurs, huit combustibles, règle d’efficacité, provenance et contrats de chauffage.
+- `src/engine/heating/` : extraction de la charge productive pour Production, saisie manuelle et calcul pur du chauffage.
 - `src/engine/transport/` : contrôle des flux par rapport à une ligne de convoyeur.
 - `src/features/production/` : formulaire et résultats en français.
+- `src/features/heating/` : appareils, groupes de générateurs, affectations, combustible et résultats.
 - `src/app/` : entrée React et styles adaptatifs.
 - `tests/` : références métier et cas unitaires/erreurs.
 
@@ -46,4 +48,34 @@ Temps en secondes, débits en objets/min, charge thermique en P/s. Le chauffage 
 
 ## Limites assumées
 
-Une cible, une recette déterministe à sortie unique par objet, entrées externes explicites. Les recettes ambiguës, probabilistes et à plusieurs sorties sont refusées. Pas de choix de four, combustible, implantation, optimisation, sauvegarde ou service distant. Le bouton de chauffage reste désactivé. Les contrôles de transport portent sur les débits agrégés par objet et ne simulent aucun trajet physique.
+Une cible, une recette déterministe à sortie unique par objet, entrées externes explicites. Les recettes ambiguës, probabilistes et à plusieurs sorties sont refusées. Pas d’implantation graphique, d’optimisation, de sauvegarde ou de service distant. Les contrôles de transport portent sur les débits agrégés par objet et ne simulent aucun trajet physique.
+
+## Chauffage
+
+`calculateHeating(dataset, request)` est indépendant de React. Les charges importées restent la source unique de chaleur productive : les affectations contiennent seulement l’identifiant de l’appareil et son nombre physique. Cette simplification évite de dupliquer et de désynchroniser les équivalents actifs et la chaleur dans chaque groupe.
+
+Le placement utilise les appareils construits (3 unités par creuset). Chaque groupe vérifie `quantité de générateurs × capacité`, indépendamment de la chaleur. Les groupes peuvent combiner plusieurs types de générateurs et répartir les creusets ; le contrôle est agrégé, sans simulation géométrique. Les appareils manquants provoquent un avertissement ; les doubles affectations, quantités fractionnaires d’appareils, références inconnues et valeurs numériques invalides sont refusées. Une configuration surchargée conserve une estimation théorique de consommation clairement signalée comme non réalisable.
+
+La règle 1.0 retenue impose un coût propre de 0 P/s aux deux générateurs. Ce champ est `verified` au titre du cahier des charges fourni (provenance `spec.proto002`), sans prétendre à une vérification primaire indépendante. Les capacités de 9 et 42 unités et la règle candidate `1 + niveau × 0,10` restent `unverified` et sont signalées dans l’interface. Aucun plafond métier d’efficacité n’est imposé ; les valeurs doivent rester représentables numériquement. Les noms français non confirmés portent le marquage prévu.
+
+### Parcours
+
+1. Calculer une chaîne Production, puis cliquer sur **Configurer le chauffage** : tous les `HeatingLoad` sont copiés sans recalcul de leur charge productive.
+2. Ajouter les groupes de générateurs, choisir leur type et leur quantité, puis affecter les appareils par nombre. Aucun nombre de fours n’est choisi automatiquement.
+3. Choisir le combustible et le niveau d’efficacité ; les résultats se mettent à jour.
+4. Après un nouveau calcul Production, utiliser **Importer depuis la chaîne actuelle**. L’import remplace les appareils et réinitialise les groupes, affectations, combustible et efficacité, comme annoncé dans l’interface. La simple navigation conserve les saisies. Une cible Production modifiée doit être recalculée avant import.
+
+Le mode autonome permet de saisir la quantité totale de creusets construits et leur équivalent actif, puis d’appliquer cette configuration. Cette action remplace la liste des appareils et réinitialise leurs affectations. Une configuration vide consomme zéro ; un appareil inactif occupe toujours de la place.
+
+### Références Chauffage
+
+| Cas             | Placement requis / disponible | Chaleur | Énergie effective | Combustible/min | État      |
+| --------------- | ----------------------------- | ------- | ----------------- | --------------- | --------- |
+| H1              | 9 / 9                         | 12 P/s  | 48 P/objet        | 15              | Valide    |
+| H2              | 6 / 9                         | 6 P/s   | 48 P/objet        | 7,5             | Valide    |
+| H3, niveau 2    | 9 / 9                         | 12 P/s  | 57,6 P/objet      | 12,5            | Valide    |
+| H4              | 12 / 9                        | 16 P/s  | 48 P/objet        | 20              | Surcharge |
+| H5, 14 creusets | 42 / 42                       | 56 P/s  | 48 P/objet        | 70              | Valide    |
+| H5, 15 creusets | 45 / 42                       | 60 P/s  | 48 P/objet        | 75              | Surcharge |
+
+Ces références utilisent la poudre de charbon de bois. Les 31 tests PROTO-001 sont conservés, complétés par les références H1–H5, le transfert B/B2 et les validations du moteur Chauffage.

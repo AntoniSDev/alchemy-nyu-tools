@@ -60,7 +60,7 @@ export const prototypeDataset: ProductionDataset = {
       id: "machine.crucible",
       nameFr: "Creuset",
       nameValidation: unverified,
-      heating: { baseHeatPerSecond: 4, placementUnits: null },
+      heating: { baseHeatPerSecond: 4, placementUnits: 3 },
     },
   ],
   recipes: [
