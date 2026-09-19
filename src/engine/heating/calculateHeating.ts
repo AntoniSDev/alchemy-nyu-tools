@@ -5,6 +5,11 @@ import type {
   HeatingResult,
 } from "../../types/heating";
 import { requireNonNegative, requirePositive } from "../../utils/numbers";
+import {
+  getFactorySpeedMultiplier,
+  getFuelEfficiencyMultiplier,
+} from "../upgrades/calculateUpgrades";
+import { calculateHeatingLoad } from "./calculateHeatingLoad";
 
 export function requireCount(value: number, label: string): number {
   requireNonNegative(value, label);
@@ -26,6 +31,7 @@ export function createManualHeatingLoad(
   machineId: string,
   constructedCount: number,
   theoreticalCount: number,
+  factoryEfficiencyLevel = 0,
 ): HeatingLoad {
   requireCount(constructedCount, "La quantité construite");
   requireNonNegative(theoreticalCount, "L’équivalent actif");
@@ -34,20 +40,16 @@ export function createManualHeatingLoad(
       "L’équivalent actif ne peut pas dépasser la quantité construite.",
     );
   const machine = heatingMachine(dataset, machineId);
-  const baseHeat = requireNonNegative(
-    machine.heating!.baseHeatPerSecond,
-    "La chaleur de base",
-  );
-  return {
-    machineId,
-    constructedCount,
-    theoreticalCount,
-    utilization: constructedCount ? theoreticalCount / constructedCount : 0,
-    productiveHeatPerSecond: requireNonNegative(
-      theoreticalCount * baseHeat,
-      "La charge productive",
-    ),
-  };
+  return calculateHeatingLoad(
+    machine,
+    {
+      machineId,
+      constructedCount,
+      theoreticalCount,
+      utilization: constructedCount ? theoreticalCount / constructedCount : 0,
+    },
+    getFactorySpeedMultiplier(factoryEfficiencyLevel),
+  )!;
 }
 
 export function calculateHeating(
@@ -167,11 +169,9 @@ export function calculateHeating(
   );
   if (!fuel) throw new Error("Combustible inconnu.");
   requirePositive(fuel.baseHeatPerItem, "La valeur du combustible");
-  requireCount(request.fuelEfficiencyLevel, "Le niveau d’efficacité");
-  requireNonNegative(dataset.efficiency.bonusPerLevel, "Le bonus d’efficacité");
-  const fuelEfficiencyMultiplier = requirePositive(
-    1 + request.fuelEfficiencyLevel * dataset.efficiency.bonusPerLevel,
-    "Le multiplicateur d’efficacité",
+  const fuelEfficiencyMultiplier = getFuelEfficiencyMultiplier(
+    request.fuelEfficiencyLevel,
+    dataset.efficiency.bonusPerLevel,
   );
   const effectiveFuelHeatPerItem = requirePositive(
     fuel.baseHeatPerItem * fuelEfficiencyMultiplier,

@@ -1,4 +1,4 @@
-# Alchemy Nyu Tools — PROTO-002
+# Alchemy Nyu Tools — PROTO-003
 
 Prototype statique de calcul de production et de chauffage pour Alchemy Factory 1.0.x. React, TypeScript strict, Vite et Vitest ; aucun serveur applicatif ni compte.
 
@@ -47,6 +47,7 @@ Références : [configuration SPA Cloudflare](https://developers.cloudflare.com/
 - `src/engine/transport/` : contrôle des flux par rapport à une ligne de convoyeur.
 - `src/features/production/` : formulaire et résultats en français.
 - `src/features/heating/` : appareils, groupes de générateurs, affectations, combustible et résultats.
+- `src/data/upgrades.ts`, `src/types/upgrades.ts`, `src/engine/upgrades/` : définitions, niveaux et formules pures des trois améliorations.
 - `src/app/` : entrée React et styles adaptatifs.
 - `tests/` : références métier et cas unitaires/erreurs.
 
@@ -84,7 +85,7 @@ La règle 1.0 retenue impose un coût propre de 0 P/s aux deux générateurs. Ce
 1. Calculer une chaîne Production, puis cliquer sur **Configurer le chauffage** : tous les `HeatingLoad` sont copiés sans recalcul de leur charge productive.
 2. Ajouter les groupes de générateurs, choisir leur type et leur quantité, puis affecter les appareils par nombre. Aucun nombre de fours n’est choisi automatiquement.
 3. Choisir le combustible et le niveau d’efficacité ; les résultats se mettent à jour.
-4. Après un nouveau calcul Production, utiliser **Importer depuis la chaîne actuelle**. L’import remplace les appareils et réinitialise les groupes, affectations, combustible et efficacité, comme annoncé dans l’interface. La simple navigation conserve les saisies. Une cible Production modifiée doit être recalculée avant import.
+4. Après un nouveau calcul Production, utiliser **Importer depuis la chaîne actuelle**. L’import remplace les appareils et réinitialise les groupes, affectations et le choix du combustible, comme annoncé dans l’interface. Les niveaux globaux, dont l’efficacité du carburant, sont conservés. La simple navigation conserve les saisies. Une cible Production modifiée doit être recalculée avant import.
 
 Le mode autonome permet de saisir la quantité totale de creusets construits et leur équivalent actif, puis d’appliquer cette configuration. Cette action remplace la liste des appareils et réinitialise leurs affectations. Une configuration vide consomme zéro ; un appareil inactif occupe toujours de la place.
 
@@ -100,3 +101,26 @@ Le mode autonome permet de saisir la quantité totale de creusets construits et 
 | H5, 15 creusets | 45 / 42                       | 60 P/s  | 48 P/objet        | 75              | Surcharge |
 
 Ces références utilisent la poudre de charbon de bois. Les 31 tests PROTO-001 sont conservés, complétés par les références H1–H5, le transfert B/B2 et les validations du moteur Chauffage.
+
+## Améliorations globales
+
+Les trois définitions de `src/data/upgrades.ts` séparent identifiants, libellés français, statut et paramètres numériques. Toutes les règles détaillées restent `unverified`, issues du cahier des charges PROTO-003. `getConveyorCapacity`, `getFactorySpeedMultiplier` et `getFuelEfficiencyMultiplier` exécutent les calculs hors React. Les niveaux sont des entiers positifs ou nuls représentables sans perte de précision ; aucun plafond de jeu arbitraire n’est ajouté.
+
+- **Logistique** : base 60 objets/min, +15 par niveau jusqu’à 12, puis +3. La capacité effective alimente les contrôles de chaque flux.
+- **Usine** : base ×1, +0,25 par niveau jusqu’à 12, puis +0,05. La durée effective est divisée par ce multiplicateur sans modifier les recettes. La chaleur instantanée de chaque appareil est multipliée par cette même valeur, puis pondérée par son nombre théorique.
+- **Carburant** : base ×1, +0,10 par niveau. Le moteur Chauffage réutilise cette formule centralisée ; aucune deuxième formule n’est maintenue dans l’interface.
+
+`ProductionRequest.upgrades` est facultatif pour conserver les appels existants au niveau zéro. Les résultats contiennent une copie des niveaux appliqués, la capacité de convoyeur et la vitesse effective. Les `HeatingLoad` produits ajoutent le multiplicateur usine et la chaleur instantanée par appareil, sans changer le rôle de `productiveHeatPerSecond`.
+
+Les niveaux globaux sont partagés dans `App`. Une modification valide actualise la dernière cible calculée et les flux ; une nouvelle cible nécessite toujours le bouton Calculer. Une saisie de niveau invalide conserve explicitement le dernier niveau valide. Le niveau carburant est partagé immédiatement entre Production et Chauffage, y compris après un import. Le chauffage importé conserve son instantané de vitesse, affiché en lecture seule, jusqu’à réimport explicite. Il ne remultiplie jamais la charge reçue. En mode autonome, la vitesse usine peut être réglée ; elle recalcule la chaleur des appareils saisis à équivalent actif constant.
+
+| Cas | Résultat                                                                                    |
+| --- | ------------------------------------------------------------------------------------------- |
+| U1  | Logistique 0/4/12/13 : 60/120/240/243 objets/min                                            |
+| U2  | Usine 0/4/12/13 : ×1/×2/×4/×4,05                                                            |
+| U3  | 20 poudres/min, usine 4 : broyeur et creuset à 1,5 théorique, 2 construits, 75 %            |
+| U4  | 8 P/s par creuset actif × 1,5 = 12 P/s productifs                                           |
+| U5  | Poudre de charbon de bois, carburant 0/5 : 48/72 P par objet, consommation 15/10 par minute |
+| U6  | Flux de 100/min, logistique 0/4 : 2/1 lignes nécessaires                                    |
+
+Les tests vérifient également les niveaux 1 et 20, l’invariance de 36 P par poudre produite à plusieurs vitesses, l’immutabilité du dataset, les niveaux invalides et le chauffage autonome. La configuration Cloudflare reste inchangée.

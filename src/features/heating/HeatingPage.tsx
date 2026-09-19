@@ -6,6 +6,9 @@ import {
 } from "../../engine/heating/calculateHeating";
 import type { HeatingLoad } from "../../types/production";
 import type { HeatingResult } from "../../types/heating";
+import type { UpgradeLevels } from "../../types/upgrades";
+import { UpgradeLevelInput } from "../../components/UpgradeLevelInput";
+import { getFactorySpeedMultiplier } from "../../engine/upgrades/calculateUpgrades";
 import {
   formatNumber as number,
   formatPercent as percent,
@@ -23,25 +26,30 @@ function numericInput(value: string, label: string): number {
 }
 
 export function HeatingPage({
+  upgrades,
+  onUpgradeChange,
+  importedFactoryLevel,
   initialLoads,
   imported,
   canImport,
   productionChanged,
   onImport,
 }: {
+  upgrades: UpgradeLevels;
+  onUpgradeChange: (key: keyof UpgradeLevels, value: number) => void;
+  importedFactoryLevel: number;
   initialLoads: HeatingLoad[];
   imported: boolean;
   canImport: boolean;
   productionChanged: boolean;
   onImport: () => void;
 }) {
-  const [loads, setLoads] = useState<HeatingLoad[]>(() =>
+  const [savedLoads, setLoads] = useState<HeatingLoad[]>(() =>
     initialLoads.map((load) => ({ ...load })),
   );
   const [source, setSource] = useState(imported ? "production" : "manual");
   const [groups, setGroups] = useState<GroupDraft[]>([]);
   const [selectedFuelId, setSelectedFuelId] = useState("item.charcoal_powder");
-  const [level, setLevel] = useState("0");
   const [manualCount, setManualCount] = useState("1");
   const [manualActive, setManualActive] = useState("1");
   const [manualError, setManualError] = useState("");
@@ -56,6 +64,7 @@ export function HeatingPage({
         "machine.crucible",
         numericInput(manualCount, "la quantité construite"),
         numericInput(manualActive, "l’équivalent actif"),
+        upgrades.factoryEfficiency,
       );
       setLoads([load]);
       setGroups((previous) =>
@@ -76,13 +85,24 @@ export function HeatingPage({
       ),
     );
   }
+  let loads = savedLoads;
   let result: HeatingResult | null = null;
   let calculationError = "";
   try {
+    if (source === "manual")
+      loads = savedLoads.map((load) =>
+        createManualHeatingLoad(
+          dataset,
+          load.machineId,
+          load.constructedCount,
+          load.theoreticalCount,
+          upgrades.factoryEfficiency,
+        ),
+      );
     result = calculateHeating(dataset, {
       loads,
       selectedFuelId,
-      fuelEfficiencyLevel: numericInput(level, "le niveau d’efficacité"),
+      fuelEfficiencyLevel: upgrades.fuelEfficiency,
       generatorGroups: groups.map((group) => ({
         generatorId: group.generatorId,
         count: numericInput(group.count, "la quantité de générateurs"),
@@ -119,8 +139,8 @@ export function HeatingPage({
           </strong>
           <p className="note">
             L’import remplace les appareils et réinitialise les générateurs, les
-            affectations et le combustible. La navigation seule conserve votre
-            configuration.
+            affectations et le combustible. Les niveaux globaux sont conservés.
+            La navigation seule conserve votre configuration.
           </p>
         </div>
         <button onClick={onImport} disabled={!canImport}>
@@ -141,6 +161,21 @@ export function HeatingPage({
       <div className="results">
         <section className="panel">
           <h2>Appareils à chauffer</h2>
+          {source === "production" ? (
+            <p className="note">
+              Efficacité de l’usine importée : niveau {importedFactoryLevel} · ×
+              {number(getFactorySpeedMultiplier(importedFactoryLevel))}. La
+              vitesse est déjà incluse dans les charges ; elle n’est pas
+              appliquée une seconde fois.
+            </p>
+          ) : (
+            <UpgradeLevelInput
+              label="Efficacité de l’usine"
+              value={upgrades.factoryEfficiency}
+              onChange={(value) => onUpgradeChange("factoryEfficiency", value)}
+              effect={`Vitesse usine : ×${number(getFactorySpeedMultiplier(upgrades.factoryEfficiency))}`}
+            />
+          )}
           {loads.length === 0 ? (
             <p>
               Aucun appareil à chauffer. Ajoutez des creusets manuellement ou
@@ -150,6 +185,12 @@ export function HeatingPage({
             loads.map((load) => (
               <div className="heat-load" key={load.machineId}>
                 <h3>{machineName(load.machineId)}</h3>
+                {load.effectiveMachineHeatPerSecond !== undefined && (
+                  <p className="note">
+                    Chaleur instantanée par appareil actif :{" "}
+                    {number(load.effectiveMachineHeatPerSecond)} P/s
+                  </p>
+                )}
                 <dl>
                   <div>
                     <dt>Quantité construite</dt>
@@ -321,16 +362,12 @@ export function HeatingPage({
                 ))}
               </select>
             </label>
-            <label>
-              Niveau d’efficacité du carburant
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={level}
-                onChange={(event) => setLevel(event.target.value)}
-              />
-            </label>
+            <UpgradeLevelInput
+              label="Niveau d’efficacité du carburant"
+              value={upgrades.fuelEfficiency}
+              onChange={(value) => onUpgradeChange("fuelEfficiency", value)}
+              effect="Niveau partagé avec Production."
+            />
           </div>
           <p className="note">
             Formule candidate non vérifiée : +

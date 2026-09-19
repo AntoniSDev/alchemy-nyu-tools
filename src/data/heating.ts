@@ -1,4 +1,5 @@
 import { prototypeDataset } from "./prototype";
+import { upgradeDefinitions } from "./upgrades";
 import type { FieldValidation } from "../types/production";
 import type { HeatingDataset } from "../types/heating";
 
@@ -91,5 +92,5 @@ export const heatingDataset: HeatingDataset = {
       nameValidation: unverified,
     },
   ],
-  efficiency: { bonusPerLevel: 0.1, validation: unverified },
+  efficiency: upgradeDefinitions.fuelEfficiency,
 };

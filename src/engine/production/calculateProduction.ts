@@ -13,11 +13,32 @@ import {
 } from "../../utils/numbers";
 import { calculateHeatingLoad } from "../heating/calculateHeatingLoad";
 import { checkTransport } from "../transport/checkTransport";
+import { defaultUpgradeLevels, upgradeDefinitions } from "../../data/upgrades";
+import {
+  getConveyorCapacity,
+  getFactorySpeedMultiplier,
+  validateUpgradeLevels,
+} from "../upgrades/calculateUpgrades";
 
 export function calculateProduction(
   dataset: ProductionDataset,
   request: ProductionRequest,
 ): ProductionResult {
+  const upgrades = validateUpgradeLevels(
+    request.upgrades ?? defaultUpgradeLevels,
+  );
+  const definitions = dataset.upgrades ?? upgradeDefinitions;
+  const factorySpeedMultiplier = getFactorySpeedMultiplier(
+    upgrades.factoryEfficiency,
+    definitions.factoryEfficiency,
+  );
+  const conveyorCapacityPerMinute = getConveyorCapacity(
+    upgrades.logisticsEfficiency,
+    {
+      ...definitions.logisticsEfficiency,
+      baseValue: dataset.conveyorCapacityPerMinute,
+    },
+  );
   const items = new Map(dataset.items.map((item) => [item.id, item]));
   const machines = new Map(
     dataset.machines.map((machine) => [machine.id, machine]),
@@ -80,7 +101,11 @@ export function calculateProduction(
     }
     const output = recipe.outputs[0];
     const count =
-      ratePerMinute / outputPerMinute(recipe.cycleTimeSeconds, output.quantity);
+      ratePerMinute /
+      outputPerMinute(
+        recipe.cycleTimeSeconds / factorySpeedMultiplier,
+        output.quantity,
+      );
     const previous = recipeCounts.get(recipe.id)?.count ?? 0;
     recipeCounts.set(recipe.id, {
       machineId: recipe.machineId,
@@ -134,8 +159,11 @@ export function calculateProduction(
   const flows = flowsFrom(flowRates);
   const transportChecks = flows
     .filter((flow) => items.get(flow.itemId)!.transportable)
-    .map((flow) => checkTransport(flow, dataset.conveyorCapacityPerMinute));
+    .map((flow) => checkTransport(flow, conveyorCapacityPerMinute));
   return {
+    upgrades,
+    factorySpeedMultiplier,
+    conveyorCapacityPerMinute,
     target: { ...request.target },
     root,
     machines: requirements,
@@ -145,6 +173,7 @@ export function calculateProduction(
       const load = calculateHeatingLoad(
         machines.get(requirement.machineId)!,
         requirement,
+        factorySpeedMultiplier,
       );
       return load ? [load] : [];
     }),

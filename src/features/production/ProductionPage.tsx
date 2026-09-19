@@ -1,11 +1,16 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   externalItemIds,
   prototypeDataset as dataset,
   targetItemIds,
 } from "../../data/prototype";
 import { calculateProduction } from "../../engine/production/calculateProduction";
-import type { ProductionResult } from "../../types/production";
+import type {
+  ProductionResult,
+  ProductionTarget,
+} from "../../types/production";
+import type { UpgradeLevels } from "../../types/upgrades";
+import { UpgradesPanel } from "./UpgradesPanel";
 import {
   formatNumber as number,
   formatPercent as percent,
@@ -18,39 +23,49 @@ const machineName = (id: string) =>
   label(dataset.machines.find((machine) => machine.id === id)!);
 
 export function ProductionPage({
+  upgrades,
+  onUpgradeChange,
   onResultChange,
   onConfigureHeating,
 }: {
+  upgrades: UpgradeLevels;
+  onUpgradeChange: (key: keyof UpgradeLevels, value: number) => void;
   onResultChange: (result: ProductionResult | null) => void;
   onConfigureHeating: (result: ProductionResult) => void;
 }) {
   const [itemId, setItemId] = useState(targetItemIds[0]);
   const [rate, setRate] = useState("15");
-  const [result, setResult] = useState<ProductionResult | null>(null);
-  const [error, setError] = useState("");
+  const [target, setTarget] = useState<ProductionTarget | null>(null);
+  const { result, error } = useMemo(() => {
+    if (!target) return { result: null, error: "" };
+    try {
+      return {
+        result: calculateProduction(dataset, {
+          target,
+          externalItemIds,
+          upgrades,
+        }),
+        error: "",
+      };
+    } catch (caught) {
+      return {
+        result: null,
+        error: caught instanceof Error ? caught.message : "Le calcul a échoué.",
+      };
+    }
+  }, [target, upgrades]);
   function submit(event: FormEvent) {
     event.preventDefault();
-    try {
-      if (!rate.trim()) throw new Error("Saisissez une quantité par minute.");
-      const calculated = calculateProduction(dataset, {
-        target: { itemId, ratePerMinute: Number(rate) },
-        externalItemIds,
-      });
-      setResult(calculated);
-      onResultChange(calculated);
-      setError("");
-    } catch (caught) {
-      setResult(null);
-      onResultChange(null);
-      setError(
-        caught instanceof Error ? caught.message : "Le calcul a échoué.",
-      );
-    }
+    setTarget({ itemId, ratePerMinute: rate.trim() ? Number(rate) : NaN });
   }
   const stale =
     result &&
     (result.target.itemId !== itemId ||
+      !rate.trim() ||
       result.target.ratePerMinute !== Number(rate));
+  useEffect(() => {
+    onResultChange(stale ? null : result);
+  }, [result, stale, onResultChange]);
   const intermediateFlows =
     result?.flows.filter(
       (flow) =>
@@ -68,6 +83,7 @@ export function ProductionPage({
           petite chaîne de production.
         </p>
       </div>
+      <UpgradesPanel levels={upgrades} onChange={onUpgradeChange} />
       <form onSubmit={submit} className="panel form">
         <label>
           Produit à fabriquer
@@ -75,7 +91,6 @@ export function ProductionPage({
             value={itemId}
             onChange={(event) => {
               setItemId(event.target.value);
-              onResultChange(null);
             }}
           >
             {targetItemIds.map((id) => (
@@ -95,7 +110,6 @@ export function ProductionPage({
             value={rate}
             onChange={(event) => {
               setRate(event.target.value);
-              onResultChange(null);
             }}
           />
         </label>
@@ -195,7 +209,7 @@ export function ProductionPage({
           <section className="panel">
             <h2>Transport</h2>
             <p className="note">
-              Convoyeur de référence : {dataset.conveyorCapacityPerMinute}{" "}
+              Capacité du convoyeur : {number(result.conveyorCapacityPerMinute)}{" "}
               objets/min par ligne. Contrôle de chaque flux, sans simulation de
               trajet.
             </p>

@@ -1,10 +1,12 @@
 import type { FieldValidation, ProductionDataset } from "../types/production";
+import { upgradeDefinitions } from "./upgrades";
 
 const unverified: FieldValidation = { status: "unverified", evidenceIds: [] };
 
 // Values transcribed from the PROTO-001 specification, not independently verified in game.
 export const prototypeDataset: ProductionDataset = {
-  conveyorCapacityPerMinute: 60,
+  upgrades: upgradeDefinitions,
+  conveyorCapacityPerMinute: upgradeDefinitions.logisticsEfficiency.baseValue,
   items: [
     {
       id: "item.plank",

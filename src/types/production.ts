@@ -1,3 +1,5 @@
+import type { UpgradeDefinitions, UpgradeLevels } from "./upgrades";
+
 export type ValidationStatus =
   "verified" | "unverified" | "conflict" | "obsolete";
 export interface FieldValidation {
@@ -34,6 +36,7 @@ export interface Machine {
   heating?: MachineHeatingRequirement;
 }
 export interface ProductionDataset {
+  upgrades?: UpgradeDefinitions;
   items: Item[];
   machines: Machine[];
   recipes: Recipe[];
@@ -44,6 +47,7 @@ export interface ProductionTarget {
   ratePerMinute: number;
 }
 export interface ProductionRequest {
+  upgrades?: UpgradeLevels;
   target: ProductionTarget;
   externalItemIds: string[];
 }
@@ -54,6 +58,8 @@ export interface MachineRequirement {
   utilization: number;
 }
 export interface HeatingLoad extends MachineRequirement {
+  factorySpeedMultiplier?: number;
+  effectiveMachineHeatPerSecond?: number;
   productiveHeatPerSecond: number;
 }
 export interface ItemFlow {
@@ -80,6 +86,9 @@ export interface CalculationWarning {
   message: string;
 }
 export interface ProductionResult {
+  upgrades: UpgradeLevels;
+  factorySpeedMultiplier: number;
+  conveyorCapacityPerMinute: number;
   target: ProductionTarget;
   root: ProductionNode;
   machines: MachineRequirement[];
